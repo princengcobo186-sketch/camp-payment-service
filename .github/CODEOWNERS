@@ -1,0 +1,5 @@
+# Every change needs the owner's review. CI and the chart are listed explicitly because they
+# control what gets built, pushed to ECR and deployed.
+*                          @princengcobo186-sketch
+/.github/                  @princengcobo186-sketch
+/chart/                    @princengcobo186-sketch

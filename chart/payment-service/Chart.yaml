@@ -1,0 +1,8 @@
+apiVersion: v2
+name: payment-service
+description: CAMP payment processing microservice
+type: application
+# Chart version: bumped when templates change; Argo CD pulls the chart at git tag chart-v<version>.
+version: 0.1.0
+# appVersion is informational. The image tag is always set per environment in camp-k8s-gitops.
+appVersion: "0.1.0"

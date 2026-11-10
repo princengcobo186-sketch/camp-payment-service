@@ -8,5 +8,7 @@ repos:
       - id: check-merge-conflict
       - id: check-yaml
         args: [--allow-multiple-documents]
+        # Helm templates are not YAML until rendered; helm lint and chart-check.sh cover them.
+        exclude: ^chart/[^/]+/templates/
       - id: detect-private-key
       - id: check-added-large-files

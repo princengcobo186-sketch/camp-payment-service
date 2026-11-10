@@ -1,0 +1,32 @@
+# Defaults are safe and minimal. Environment-specific values (image tag, replicas, env) live in
+# camp-k8s-gitops, never here.
+image:
+  repository: ""        # required; set per environment
+  tag: ""               # required; immutable tag (git SHA), never "latest"
+  pullPolicy: IfNotPresent
+
+# The in-memory store is per-pod, so more than one replica would split idempotency state.
+# Raise only after the Postgres adapter lands.
+replicaCount: 1
+
+env:
+  APP_ENV: ""           # required: local | dev | staging | prod
+  LOG_LEVEL: INFO
+
+service:
+  port: 80
+
+serviceAccount:
+  # Name is a contract: AWS Pod Identity associations in camp-infra-live bind to it.
+  name: payment-service
+
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { memory: 128Mi }
+
+podDisruptionBudget:
+  enabled: false
+
+serviceMonitor:
+  enabled: false        # needs the Prometheus Operator CRDs (kube-prometheus-stack)
+  interval: 30s

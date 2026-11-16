@@ -37,6 +37,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_ECR_PUSH_SECRET_ACCESS_KEY }}
           role-to-assume: ${{ secrets.AWS_ECR_PUSH_ROLE_ARN }}
           role-session-name: release-${{ github.run_id }}
+          # Session tags would need sts:TagSession in both the user and the role trust policy.
+          # They are informational only, so the role's trust stays AssumeRole-only.
+          role-skip-session-tagging: true
           role-duration-seconds: 900
           aws-region: ${{ env.AWS_REGION }}
 

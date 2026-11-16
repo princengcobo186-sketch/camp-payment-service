@@ -16,6 +16,13 @@ env:
 service:
   port: 80
 
+# Off by default. An ALB Ingress is created only where a route is wanted (dev smoke tests). Scheme,
+# subnets and any CIDR allowlist are set per environment in camp-k8s-gitops, never here.
+ingress:
+  enabled: false
+  className: alb
+  annotations: {}
+
 serviceAccount:
   # Name is a contract: AWS Pod Identity associations in camp-infra-live bind to it.
   name: payment-service

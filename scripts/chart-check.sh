@@ -28,6 +28,11 @@ reject() { # description, helm args that must make rendering fail
   fi
   echo "ok: rejects ${desc}"
 }
+ingress="$(helm template t "${chart}" "${good[@]}" --set ingress.enabled=true)"
+grep -qF "ingressClassName: alb" <<< "${ingress}" || { echo "FAIL: ingress uses the ALB class" >&2; exit 1; }
+echo "ok: ingress uses the ALB class when enabled"
+if grep -qF "kind: Ingress" <<< "${rendered}"; then echo "FAIL: ingress rendered by default" >&2; exit 1; fi
+echo "ok: no ingress by default"
 reject "the latest tag" --set image.repository=x --set image.tag=latest --set env.APP_ENV=dev
 reject "a missing APP_ENV" --set image.repository=x --set image.tag=abc
 reject "an unknown APP_ENV" --set image.repository=x --set image.tag=abc --set env.APP_ENV=qa

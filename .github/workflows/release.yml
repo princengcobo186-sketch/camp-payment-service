@@ -1,0 +1,82 @@
+# Build once, push once. The image is built from the merged commit, scanned, given an SBOM, and
+# pushed to ECR under its git SHA. The ECR repository is IMMUTABLE, so a SHA tag can be pushed
+# once and never replaced. Later environments promote this exact tag rather than rebuilding it.
+#
+# Credentials: the push identity's access key lives in repository secrets (see
+# camp-infra-live/scripts/ci-key.sh ecr-push). It can push to one repository only.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: camp/payment-service
+
+jobs:
+  image:
+    name: Build, scan and push
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials (push identity only)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ECR_PUSH_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_PUSH_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve registry
+        id: registry
+        run: |
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          echo "uri=${account}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}" >> "${GITHUB_OUTPUT}"
+
+      - name: Log in to ECR
+        run: aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${{ steps.registry.outputs.uri }}"
+
+      - name: Build once
+        run: docker build -t "${{ steps.registry.outputs.uri }}:${GITHUB_SHA}" .
+
+      # Fails the release on fixable HIGH or CRITICAL findings. Unfixed findings in the base image
+      # are reported but do not block, since no release could pass them until upstream ships a fix.
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.registry.outputs.uri }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.registry.outputs.uri }}:${{ github.sha }}
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # Immutable tags: this push is rejected if the SHA tag already exists.
+      - name: Push (immutable tag)
+        run: docker push "${{ steps.registry.outputs.uri }}:${GITHUB_SHA}"
+
+      - name: Record digest
+        run: |
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "${{ steps.registry.outputs.uri }}:${GITHUB_SHA}")"
+          echo "### Released ${digest}" >> "${GITHUB_STEP_SUMMARY}"

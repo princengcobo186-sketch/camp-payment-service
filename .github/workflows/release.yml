@@ -27,11 +27,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Configure AWS credentials (push identity only)
+      # Two steps by design: the access key belongs to a user that can only assume a role, and the
+      # role holds the ECR permissions. The workflow therefore assumes the role, and the session
+      # has only what the role grants.
+      - name: Configure AWS credentials (assume push role)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-access-key-id: ${{ secrets.AWS_ECR_PUSH_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_ECR_PUSH_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ECR_PUSH_ROLE_ARN }}
+          role-session-name: release-${{ github.run_id }}
+          role-duration-seconds: 900
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Resolve registry
